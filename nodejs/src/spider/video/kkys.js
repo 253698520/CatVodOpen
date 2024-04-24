@@ -38,7 +38,6 @@ async function request(reqUrl, postData, agentSp, get) {
     });
 
     let content = res.data;
-    
     // console.log(content);
     if (typeof content === 'string') {
         var key = CryptoJS.enc.Utf8.parse('IjhHsCB2B5^#%0Ag');
@@ -360,7 +359,7 @@ async function test(inReq, outResp) {
 export default {
     meta: {
         key: 'kkys',
-        name: '快看影视',
+        name: '🟢 快看影视',
         type: 3,
     },
     api: async (fastify) => {

@@ -28,20 +28,20 @@ wogg: {
 },
 */
 async function init(inReq, _outResp) {
-    url = inReq.server.config.wogg.url;
+    url = inReq.server.config.ttkx.url;
     await Ali.initAli(inReq.server.db, inReq.server.config.ali);
     await Quark.initQuark(inReq.server.db, inReq.server.config.quark);
     return {};
 }
 
 async function home(_inReq, _outResp) {
-    const html = await request(`${url}/index.php/vodshow/1-----------.html`);
+    const html = await request(`${url}/index.php/vodshow/1-----------/`);
     const $ = load(html);
     return {
         class: $('div.library-box-first a[href*=/vodshow/]')
             .map((_, a) => {
                 return {
-                    type_id: a.attribs.href.match(/vodshow\/(\d+)-----------.html/)[1],
+                    type_id: a.attribs.href.match(/vodshow\/(\d+)-----------\//)[1],
                     type_name: a.attribs.title.replace(/片库|玩偶/g, ''),
                 };
             })
@@ -76,13 +76,13 @@ async function category(inReq, _outResp) {
         const href = ['', '', '', '', '', '', '', '', '', '', page, '', '', ''];
         const tids = tid.split('-');
         href[parseInt(tids[1])] = tids[2];
-        const html = await request(`${url}/index.php/vodsearch/${href.join('-')}.html`);
+        const html = await request(`${url}/index.php/vodsearch/${href.join('-')}/`);
         const $ = load(html);
         const videos = $('div.module-items > div.module-search-item')
             .map((_, div) => {
                 const t = $(div).find('div.video-info-header h3 a')[0];
                 return {
-                    vod_id: t.attribs.href.match(/voddetail\/(.*).html/)[1],
+                    vod_id: t.attribs.href.match(/voddetail\/(.*)\//)[1],
                     vod_name: t.attribs.title,
                     vod_pic: fixImgUrl($(div).find('div.module-item-pic img')[0].attribs['data-src']),
                     vod_remarks: $(div).find('a.video-serial').text(),
@@ -98,7 +98,7 @@ async function category(inReq, _outResp) {
         const filters = [];
         let $ = null;
         if (page == 1 && Object.keys(extend).length == 0) {
-            const html = await request(`${url}/index.php/vodshow/${tid}-----------.html`);
+            const html = await request(`${url}/index.php/vodshow/${tid}-----------/`);
             $ = load(html);
             $('a.library-item-first').map((_, fa) => {
                 const fva = $(fa.parent).find('div.library-list > a.library-item');
@@ -106,7 +106,7 @@ async function category(inReq, _outResp) {
                     const fvs = [];
                     let fkey = 0;
                     fva.each((i, va) => {
-                        const href = va.attribs.href.match(/vodshow\/(.*).html/)[1];
+                        const href = va.attribs.href.match(/vodshow\/(.*)\//)[1];
                         const hrefs = href.split('-');
                         if (i == 0) {
                             fkey = getHrefInfoIdx(hrefs);
@@ -135,14 +135,14 @@ async function category(inReq, _outResp) {
             Object.keys(extend).forEach((e) => {
                 href[parseInt(e)] = extend[e];
             });
-            const html = await request(`${url}/index.php/vodshow/${href.join('-')}.html`);
+            const html = await request(`${url}/index.php/vodshow/${href.join('-')}/`);
             $ = load(html);
         }
         const videos = $('div.module-items > div.module-item')
             .map((_, div) => {
                 const t = $(div).find('div.video-name a')[0];
                 return {
-                    vod_id: t.attribs.href.match(/voddetail\/(.*).html/)[1],
+                    vod_id: t.attribs.href.match(/voddetail\/(.*)\//)[1],
                     vod_name: t.attribs.title,
                     vod_pic: fixImgUrl($(div).find('div.module-item-pic img')[0].attribs['data-src']),
                     vod_remarks: $(div).find('div.module-item-text').text(),
@@ -161,17 +161,26 @@ async function category(inReq, _outResp) {
     }
 }
 
+function conversion(bytes){
+  let mb = bytes / (1024 * 1024);
+  if(mb > 1024){
+    return `${(mb/1024).toFixed(2)}GB`;
+    }else{
+        return `${(mb).toFixed(2)}MB`;
+    }
+}
+
 async function detail(inReq, _outResp) {
     const ids = !Array.isArray(inReq.body.id) ? [inReq.body.id] : inReq.body.id;
     const videos = [];
     for (const id of ids) {
-        const html = await request(`${url}/index.php/voddetail/${id}.html`);
+        const html = await request(`${url}/index.php/voddetail/${id}/`);
         const $ = load(html);
         const director = [];
         const actor = [];
         let year = '';
         $('div.video-info-items a[href*=/vodsearch/]').each((_, a) => {
-            const hrefs = a.attribs.href.match(/vodsearch\/(.*).html/)[1].split('-');
+            const hrefs = a.attribs.href.match(/vodsearch\/(.*)\//)[1].split('-');
             const name = $(a).text().trim();
             const idx = getHrefInfoIdx(hrefs);
             if (idx === 5) {
@@ -206,7 +215,8 @@ async function detail(inReq, _outResp) {
                         videos
                             .map((v) => {
                                 const ids = [v.share_id, v.file_id, v.subtitle ? v.subtitle.file_id : ''];
-                                return formatPlayUrl('', v.name) + '$' + ids.join('*');
+                                const size = conversion(v.size);
+                                return formatPlayUrl('', `[${size}]  ${v.name.replace(/.[^.]+$/,'')}`) + '$' + ids.join('*');
                             })
                             .join('#'),
                     );
@@ -221,7 +231,8 @@ async function detail(inReq, _outResp) {
                             videos
                                 .map((v) => {
                                     const ids = [shareData.shareId, v.stoken, v.fid, v.share_fid_token, v.subtitle ? v.subtitle.fid : '', v.subtitle ? v.subtitle.share_fid_token : ''];
-                                    return formatPlayUrl('', v.file_name) + '$' + ids.join('*');
+                                    const size = conversion(v.size);
+                                    return formatPlayUrl('', `[${size}]  ${v.file_name.replace(/.[^.]+$/,'')}`) + '$' + ids.join('*');
                                 })
                                 .join('#'),
                         );
@@ -359,20 +370,23 @@ async function proxy(inReq, outResp) {
     }
 }
 
+function findElementIndex(arr, elem) {
+  return arr.indexOf(elem);
+}
+
 async function play(inReq, _outResp) {
     const flag = inReq.body.flag;
     const id = inReq.body.id;
     const ids = id.split('*');
+    let idx = 0;
     if (flag.startsWith('Ali-')) {
         const transcoding = await Ali.getLiveTranscoding(ids[0], ids[1]);
         aliTranscodingCache[ids[1]] = transcoding;
         transcoding.sort((a, b) => b.template_width - a.template_width);
+        const p= ['1440P','1080P','720P','480P','360P'];
+        const arr =['QHD','FHD','HD','SD','LD'];
         const urls = [];
         const proxyUrl = inReq.server.address().url + inReq.server.prefix + '/proxy/ali';
-        transcoding.forEach((t) => {
-            urls.push(t.template_id);
-            urls.push(`${proxyUrl}/trans/${t.template_id.toLowerCase()}/${ids[0]}/${ids[1]}/.m3u8`);
-        });
         urls.push('SRC');
         urls.push(`${proxyUrl}/src/down/${ids[0]}/${ids[1]}/.bin`);
         const result = {
@@ -384,20 +398,23 @@ async function play(inReq, _outResp) {
                 subt: `${proxyUrl}/src/subt/${ids[0]}/${ids[2]}/.bin`,
             };
         }
+        transcoding.forEach((t) => {
+            idx = findElementIndex(arr,t.template_id);
+            urls.push(p[idx]);
+            urls.push(`${proxyUrl}/trans/${t.template_id.toLowerCase()}/${ids[0]}/${ids[1]}/.m3u8`);
+        });
         return result;
     } else if (flag.startsWith('Quark-')) {
         const transcoding = (await Quark.getLiveTranscoding(ids[0], ids[1], ids[2], ids[3])).filter((t) => t.accessable);
         quarkTranscodingCache[ids[2]] = transcoding;
         const urls = [];
+        const p= ['2160P','1440P','1080P','720P','480P','360P'];
+        const arr =['4k','2k','super','high','low','normal'];
         const proxyUrl = inReq.server.address().url + inReq.server.prefix + '/proxy/quark';
-        transcoding.forEach((t) => {
-            urls.push(t.resolution.toUpperCase());
-            urls.push(`${proxyUrl}/trans/${t.resolution.toLowerCase()}/${ids[0]}/${encodeURIComponent(ids[1])}*${ids[2]}*${ids[3]}/.mp4`);
-        });
+        urls.push('Proxy');
+        urls.push(`${proxyUrl}/src/down/${ids[0]}/${encodeURIComponent(ids[1])}*${ids[2]}*${ids[3]}/.bin`);
         urls.push('SRC');
         urls.push(`${proxyUrl}/src/redirect/${ids[0]}/${encodeURIComponent(ids[1])}*${ids[2]}*${ids[3]}/.bin`);
-        urls.push('SRC_Proxy');
-        urls.push(`${proxyUrl}/src/down/${ids[0]}/${encodeURIComponent(ids[1])}*${ids[2]}*${ids[3]}/.bin`);
         const result = {
             parse: 0,
             url: urls,
@@ -413,6 +430,11 @@ async function play(inReq, _outResp) {
                 subt: `${proxyUrl}/src/subt/${ids[0]}/${encodeURIComponent(ids[1])}*${ids[4]}*${ids[5]}/.bin`,
             };
         }
+        transcoding.forEach((t) => {
+            idx = findElementIndex(arr,t.resolution);
+            urls.push(p[idx]);
+            urls.push(`${proxyUrl}/trans/${t.resolution.toLowerCase()}/${ids[0]}/${encodeURIComponent(ids[1])}*${ids[2]}*${ids[3]}/.mp4`);
+        });
         return result;
     }
 }
@@ -423,13 +445,13 @@ async function search(inReq, _outResp) {
     const wd = inReq.body.wd;
     let page = pg || 1;
     if (page == 0) page = 1;
-    const html = await request(`${url}/index.php/vodsearch/-------------.html?wd=${wd}`);
+    const html = await request(`${url}/index.php/vodsearch/-------------/?wd=${wd}`);
     const $ = load(html);
     const videos = $('div.module-items > div.module-search-item')
         .map((_, div) => {
             const t = $(div).find('div.video-info-header h3 a')[0];
             return {
-                vod_id: t.attribs.href.match(/voddetail\/(.*).html/)[1],
+                vod_id: t.attribs.href.match(/voddetail\/(.*)\//)[1],
                 vod_name: t.attribs.title,
                 vod_pic: fixImgUrl($(div).find('div.module-item-pic img')[0].attribs['data-src']),
                 vod_remarks: $(div).find('a.video-serial').text(),
@@ -514,8 +536,8 @@ async function test(inReq, outResp) {
 
 export default {
     meta: {
-        key: 'wogg',
-        name: '玩偶哥哥',
+        key: 'ttkx',
+        name: '🟢 开心影视',
         type: 3,
     },
     api: async (fastify) => {
