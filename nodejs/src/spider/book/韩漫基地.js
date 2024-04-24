@@ -2,13 +2,18 @@ import req from '../../util/req.js';
 import { MOBILE_UA } from '../../util/misc.js';
 import { load } from 'cheerio';
 
-let url = 'https://m.13bqg.cc';
+let url = 'https://hanmanjd.com';
 
 async function request(reqUrl) {
     let resp = await req.get(reqUrl, {
         headers: {
             'Accept-Language': 'zh-CN,zh;q=0.8',
             'User-Agent': MOBILE_UA,
+            'Referer':url,
+            'Accept':'text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,image/apng,*/*;q=0.8,application/signed-exchange;v=b3;q=0.7',
+            'Upgrade-Insecure-Requests': '1',
+            'Sec-Fetch-Site': 'same-origin',
+            'Sec-Fetch-User':'?1'
         },
     });
     return resp.data;
@@ -19,14 +24,13 @@ async function init(_inReq, _outResp) {
 }
 
 async function home(_inReq, _outResp) {
-    var html = await request(url);
+    var html = await request(url+"/manhua");
     const $ = load(html);
     let classes = [];
-    for (const a of $('div.nav > ul > li > a[href!="/"]')) {
+    for (const a of $('div.hl-filter-wrap  a[href!="/"]')) {
         classes.push({
-            type_id: a.attribs.href.replace(/\//g, ''),
-            type_name: a.children[0].data.trim(),
-            tline: 2,
+            type_id: a.attribs.href,
+            type_name: a.children[0].data.trim()
         });
     }
     return {
@@ -35,49 +39,43 @@ async function home(_inReq, _outResp) {
 }
 
 async function category(inReq, _outResp) {
-    const tid = inReq.body.id;
-    const pg = inReq.body.page;
+    const tid= inReq.body.id;
+    const pg =inReq.body.page;
     let page = pg || 1;
     if (page == 0) page = 1;
-    var html = await request(url + `/${tid}/${page}.html`);
+    var html = await request(url + `${tid}/page/${pg}`);
     const $ = load(html);
     let books = [];
-    for (const item of $('div.item')) {
+    for (const item of $('li.hl-list-item')) {
         const a = $(item).find('a:first')[0];
-        const img = $(a).find('img:first')[0];
-        const span = $(item).find('span:first')[0];
         books.push({
             book_id: a.attribs.href,
-            book_name: img.attribs.alt,
-            book_pic: img.attribs.src,
-            book_remarks: span.children[0].data.trim(),
+            book_name: a.attribs.title,
+            book_pic: $(a).attr('data-original')
         });
     }
     return {
         page: pg,
-        pagecount: $('div.page > a:contains(>)').length > 0 ? pg + 1 : pg,
+        pagecount: $('a:contains(»)').length === 0 ? pg + 1 : pg,
         list: books,
     };
 }
 
 async function detail(inReq, _outResp) {
-    const ids = !Array.isArray(inReq.body.id) ? [inReq.body.id] : inReq.body.id;
+    const ids = [inReq.body.id];
     const books = [];
     for (const id of ids) {
-        var html = await request(url + id);
-        var $ = load(html);
+        var html = await request(url+`${id}`);
+        let $ = load(html);
         let book = {
-            book_name: $('[property$=book_name]')[0].attribs.content,
-            book_year: $('[property$=update_time]')[0].attribs.content,
-            book_director: $('[property$=author]')[0].attribs.content,
-            book_content: $('[property$=description]')[0].attribs.content,
+            book_name: $('h1').text().trim(),
+            book_director: $('div.hl-data-xs a:first-child').text().trim(),
+            book_content: '由不知道为您呈现',
         };
-        html = await request(url + id + `list.html`);
-        $ = load(html);
         let urls = [];
-        const links = $('dl>dd>a[href*="/html/"]');
+        const links = $('ul.hl-plays-list a[href!="javascript:void(0)"]');
         for (const l of links) {
-            var name = $(l).text().trim();
+            var name = $(l).attr('title');
             var link = l.attribs.href;
             urls.push(name + '$' + link);
         }
@@ -92,60 +90,32 @@ async function detail(inReq, _outResp) {
 
 async function play(inReq, _outResp) {
     let id = inReq.body.id;
-    var content = '';
-    while (true) {
-        var html = await request(url + id);
-        var $ = load(html);
-        content += $('#chaptercontent')
-            .html()
-            .replace(/<br>|请收藏.*?<\/p>/g, '\n')
-            .trim();
-        id = $('a.Readpage_down')[0].attribs.href;
-        if (id.indexOf('_') < 0) break;
+    var html = await request(url+id);
+    let $ = load(html);
+    var content = [];
+    for (const l of $('div img')){
+        const img = $(l).attr('data-original');
+        content.push(img);
     }
     return {
-        content: content + '\n\n',
+        content: content
     };
 }
 
 async function search(inReq, _outResp) {
     const wd = inReq.body.wd;
-    const cook = await req.get(`${url}/user/hm.html?q=${encodeURIComponent(wd)}`, {
-        headers: {
-            accept: 'application/json',
-            'User-Agent': MOBILE_UA,
-            Referer: `${url}/s?q=${encodeURIComponent(wd)}`,
-        },
-    });
-    const set_cookie = Array.isArray(cook.headers['set-cookie']) ? cook.headers['set-cookie'].join(';;;') : cook.headers['set-cookie'];
-    const cks = set_cookie.split(';;;');
-    const cookie = {};
-    for (const c of cks) {
-        const tmp = c.trim();
-        const idx = tmp.indexOf('=');
-        const k = tmp.substr(0, idx);
-        const v = tmp.substr(idx + 1, tmp.indexOf(';') - idx - 1);
-        cookie[k] = v;
-    }
-    const resp = await req.get(`${url}/user/search.html?q=${encodeURIComponent(wd)}&so=undefined`, {
-        headers: {
-            accept: 'application/json',
-            'User-Agent': MOBILE_UA,
-            cookie: 'hm=' + cookie['hm'],
-            Referer: `${url}/s?q=${encodeURIComponent(wd)}`,
-        },
-    });
+    const html = await req.get(`${url}/catalog.php?key=${wd}&submit=`);
+    const $ = load(html);
     let books = [];
-    for (const book of resp.data) {
+    for (const item of $('div.hl-item-text')) {
+        const a = $(item).find('a:first')[0];
         books.push({
-            book_id: book.url_list,
-            book_name: book.articlename,
-            book_pic: book.url_img,
-            book_remarks: book.author,
+            book_id: a.attribs.href,
+            book_name: a.attribs.title,
+            book_pic: $(a).attr('data-original')
         });
     }
     return {
-        tline: 2,
         list: books,
     };
 }
@@ -204,7 +174,7 @@ async function test(inReq, outResp) {
             }
         }
         resp = await inReq.server.inject().post(`${prefix}/search`).payload({
-            wd: '科技',
+            wd: '爱',
             page: 1,
         });
         dataResult.search = resp.json();
@@ -219,9 +189,9 @@ async function test(inReq, outResp) {
 
 export default {
     meta: {
-        key: '13bqg',
-        name: '📖 笔趣阁',
-        type: 10,
+        key: 'hm',
+        name: '🔞 韩漫基地',
+        type: 20,
     },
     api: async (fastify) => {
         fastify.post('/init', init);

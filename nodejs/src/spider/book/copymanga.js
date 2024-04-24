@@ -268,7 +268,7 @@ async function test(inReq, outResp) {
 export default {
     meta: {
         key: 'copymanga',
-        name: '拷贝漫画',
+        name: '📚️ 拷贝漫画',
         type: 20,
     },
     api: async (fastify) => {

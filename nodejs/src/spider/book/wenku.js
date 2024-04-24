@@ -2,13 +2,17 @@ import req from '../../util/req.js';
 import { MOBILE_UA } from '../../util/misc.js';
 import { load } from 'cheerio';
 
-let url = 'https://m.13bqg.cc';
+let url = 'https://www.bilinovel.com';
 
 async function request(reqUrl) {
     let resp = await req.get(reqUrl, {
         headers: {
             'Accept-Language': 'zh-CN,zh;q=0.8',
-            'User-Agent': MOBILE_UA,
+            'User-Agent': 'Mozilla/5.0 (Linux; Android 6.0; Nexus 5 Build/MRA58N) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Mobile Safari/537.36',
+            'Sec-Ch-Ua-Platform': 'Android',
+            'Sec-Ch-Ua-Mobile' : '?1',
+            'Cookie':'night=0; _ga=GA1.1.1633540174.1709871312; Hm_lvt_6f9595b2c4b57f95a93aa5f575a77fb0=1709871312; jieqiVisitId=article_articleviews%3D3933%7C3080; jieqiVisitTime=jieqiArticlesearchTime%3D1709876079; __gads=ID=275264653a7b192a:T=1709871325:RT=1709877175:S=ALNI_MYcHM9-4TsJcqPkdCEMstmVkBQsOA; __eoi=ID=e46915642745ad0d:T=1709871325:RT=1709877175:S=AA-AfjZEDZQ7hfoYppn0lnQREQNc; jieqiRecentRead=3933.216408.0.1.1709874575.0-3080.153181.0.1.1709877412.0; Hm_lpvt_6f9595b2c4b57f95a93aa5f575a77fb0=1709877412; _ga_NG72YQN6TX=GS1.1.1709871312.1.1.1709877412.0.0.0; cf_clearance=Y2uE9tAK_ZdbvmmxId5316cTF7FUDLIttqSQ.kdfSZI-1709877415-1.0.1.1-cB_.ua4g02F3OACARKanrRLpVnIUEXDMtSCT_IjlNZIJ8mJj7Kp5U4NZDDZ_ftlON6n74nALu58FD6P4T.3zvg',
+            'Accept':'text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,image/apng,*/*;q=0.8,application/signed-exchange;v=b3;q=0.7'
         },
     });
     return resp.data;
@@ -19,16 +23,16 @@ async function init(_inReq, _outResp) {
 }
 
 async function home(_inReq, _outResp) {
-    var html = await request(url);
+    var html = await request(url+"/wenku/");
     const $ = load(html);
     let classes = [];
-    for (const a of $('div.nav > ul > li > a[href!="/"]')) {
+    for (const a of $('div.sort-li-detail:first > a[href*="/wenku/"]')) {
         classes.push({
-            type_id: a.attribs.href.replace(/\//g, ''),
-            type_name: a.children[0].data.trim(),
-            tline: 2,
+            type_id: a.attribs.href,
+            type_name: a.children[0].data.trim()
         });
     }
+    console.log(classes)
     return {
         class: classes,
     };
@@ -39,23 +43,24 @@ async function category(inReq, _outResp) {
     const pg = inReq.body.page;
     let page = pg || 1;
     if (page == 0) page = 1;
-    var html = await request(url + `/${tid}/${page}.html`);
+    var html = await request(url+tid.replace(`${tid.split('_')[8]}`,`${pg}`));
+
     const $ = load(html);
     let books = [];
-    for (const item of $('div.item')) {
-        const a = $(item).find('a:first')[0];
+    for (const li of $('li.book-li')) {
+        const a = $(li).find('a:first')[0];
         const img = $(a).find('img:first')[0];
-        const span = $(item).find('span:first')[0];
+        const span = $(li).find('span.tag-small-group:first')[0];
         books.push({
             book_id: a.attribs.href,
             book_name: img.attribs.alt,
-            book_pic: img.attribs.src,
-            book_remarks: span.children[0].data.trim(),
+            book_pic: $(img).attr('data-src'),
+            book_remarks: span.children[0].data
         });
     }
     return {
         page: pg,
-        pagecount: $('div.page > a:contains(>)').length > 0 ? pg + 1 : pg,
+        pagecount: $('#pagelink > a').length > 0 ? pg + 1 : pg,
         list: books,
     };
 }
@@ -64,7 +69,7 @@ async function detail(inReq, _outResp) {
     const ids = !Array.isArray(inReq.body.id) ? [inReq.body.id] : inReq.body.id;
     const books = [];
     for (const id of ids) {
-        var html = await request(url + id);
+        var html = await request(url+id);
         var $ = load(html);
         let book = {
             book_name: $('[property$=book_name]')[0].attribs.content,
@@ -72,16 +77,18 @@ async function detail(inReq, _outResp) {
             book_director: $('[property$=author]')[0].attribs.content,
             book_content: $('[property$=description]')[0].attribs.content,
         };
-        html = await request(url + id + `list.html`);
+        var catalog = (url+id).toString().replace('.html','')
+        html = await request(catalog + `/catalog`);
         $ = load(html);
         let urls = [];
-        const links = $('dl>dd>a[href*="/html/"]');
+        const links = $('li.chapter-li > a[href*="/novel/"]');
         for (const l of links) {
             var name = $(l).text().trim();
             var link = l.attribs.href;
+
             urls.push(name + '$' + link);
         }
-        book.volumes = '全卷';
+        book.volumes = '二次元老婆！';
         book.urls = urls.join('#');
         books.push(book);
     }
@@ -96,12 +103,11 @@ async function play(inReq, _outResp) {
     while (true) {
         var html = await request(url + id);
         var $ = load(html);
-        content += $('#chaptercontent')
+        content += $('#apage')
             .html()
-            .replace(/<br>|请收藏.*?<\/p>/g, '\n')
+            .replace(/.*<\/script>/igs, '\n').replace(/<\/div>/igs,'\n').replace(/<\/p>/igs,'\n').replace(/<p>/igs,'\n').replace(/<img.*?>/igs,'\n')
             .trim();
-        id = $('a.Readpage_down')[0].attribs.href;
-        if (id.indexOf('_') < 0) break;
+        if (!$('a:contains(下一页)').length>0) break;
     }
     return {
         content: content + '\n\n',
@@ -110,29 +116,14 @@ async function play(inReq, _outResp) {
 
 async function search(inReq, _outResp) {
     const wd = inReq.body.wd;
-    const cook = await req.get(`${url}/user/hm.html?q=${encodeURIComponent(wd)}`, {
+    const resp = await req.get(url+`/search.html?searchkey=${encodeURIComponent(wd)}`, {
         headers: {
-            accept: 'application/json',
-            'User-Agent': MOBILE_UA,
-            Referer: `${url}/s?q=${encodeURIComponent(wd)}`,
-        },
-    });
-    const set_cookie = Array.isArray(cook.headers['set-cookie']) ? cook.headers['set-cookie'].join(';;;') : cook.headers['set-cookie'];
-    const cks = set_cookie.split(';;;');
-    const cookie = {};
-    for (const c of cks) {
-        const tmp = c.trim();
-        const idx = tmp.indexOf('=');
-        const k = tmp.substr(0, idx);
-        const v = tmp.substr(idx + 1, tmp.indexOf(';') - idx - 1);
-        cookie[k] = v;
-    }
-    const resp = await req.get(`${url}/user/search.html?q=${encodeURIComponent(wd)}&so=undefined`, {
-        headers: {
-            accept: 'application/json',
-            'User-Agent': MOBILE_UA,
-            cookie: 'hm=' + cookie['hm'],
-            Referer: `${url}/s?q=${encodeURIComponent(wd)}`,
+            'Accept-Language': 'zh-CN,zh;q=0.8',
+            'User-Agent': 'Mozilla/5.0 (Linux; Android 6.0; Nexus 5 Build/MRA58N) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Mobile Safari/537.36',
+            'Sec-Ch-Ua-Platform': 'Android',
+            'Sec-Ch-Ua-Mobile' : '?1',
+            'Cookie':'night=0; _ga=GA1.1.1633540174.1709871312; Hm_lvt_6f9595b2c4b57f95a93aa5f575a77fb0=1709871312; jieqiVisitId=article_articleviews%3D3933%7C3080; jieqiVisitTime=jieqiArticlesearchTime%3D1709876079; __gads=ID=275264653a7b192a:T=1709871325:RT=1709877175:S=ALNI_MYcHM9-4TsJcqPkdCEMstmVkBQsOA; __eoi=ID=e46915642745ad0d:T=1709871325:RT=1709877175:S=AA-AfjZEDZQ7hfoYppn0lnQREQNc; jieqiRecentRead=3933.216408.0.1.1709874575.0-3080.153181.0.1.1709877412.0; Hm_lpvt_6f9595b2c4b57f95a93aa5f575a77fb0=1709877412; _ga_NG72YQN6TX=GS1.1.1709871312.1.1.1709877412.0.0.0; cf_clearance=Y2uE9tAK_ZdbvmmxId5316cTF7FUDLIttqSQ.kdfSZI-1709877415-1.0.1.1-cB_.ua4g02F3OACARKanrRLpVnIUEXDMtSCT_IjlNZIJ8mJj7Kp5U4NZDDZ_ftlON6n74nALu58FD6P4T.3zvg',
+            'Accept':'text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,image/apng,*/*;q=0.8,application/signed-exchange;v=b3;q=0.7'
         },
     });
     let books = [];
@@ -204,12 +195,12 @@ async function test(inReq, outResp) {
             }
         }
         resp = await inReq.server.inject().post(`${prefix}/search`).payload({
-            wd: '科技',
+            wd: '我当',
             page: 1,
         });
         dataResult.search = resp.json();
         printErr(resp.json());
-        return dataResult;
+        return dataResult;dataResult
     } catch (err) {
         console.error(err);
         outResp.code(500);
@@ -219,8 +210,8 @@ async function test(inReq, outResp) {
 
 export default {
     meta: {
-        key: '13bqg',
-        name: '📖 笔趣阁',
+        key: 'wenku',
+        name: '轻小说文库',
         type: 10,
     },
     api: async (fastify) => {
