@@ -21,7 +21,7 @@ export default {
         token280: 'eyJ0eXAiOiJKV1QiLCJhbGciOiJSUzI1NiJ9.eyJzdWIiOiI3N2ZkMDBiOWQ2ODI0YWM0OWY5MTgxZjUyZDU0NmRjMSIsImF1ZCI6IjczZTYxMTgzMWE3YzRkODdhYzQ5Yzg0ODFiZjlmMmM0IiwiZXhwIjoxNzIwMjUyNjUwLCJpYXQiOjE3MTI0NzY2NTAsImp0aSI6ImEyOTczZDgwODZiMzQzNTA5NmYwM2Y2MjVmMWY1ZjkwIn0.i1TMDEaiskdINZ9Dl6LqC-tngOtJHliEuHGamEK1v7H9innOfuruBlZTnVaQF_lb7wn2RIgQqCDJnk7a20JVww',
     },
     wogg: {
-        url: 'https://wogg.xyz',
+        url: 'https://wogg.net',
     },
     tudou: {
         url: 'https://tudou.lvdoui.top/',
@@ -43,7 +43,7 @@ export default {
     },
     yiso: {
         url: "https://yiso.fun",
-        cookie: "填入yiso网站的cookie即可"
+        cookie: "satoken=1d04645c-d500-4ebb-9335-29a58b5afd99"
     },
     bili: {
         categories: "经典无损音乐合集#帕梅拉#太极拳#健身#舞蹈#音乐#歌曲#MV4K#演唱会4K#白噪音4K#知名UP主#说案#解说#演讲#时事#探索发现超清#纪录片超清#沙雕动画#沙雕穿越#沙雕#平面设计教学#软件教程#实用教程#旅游#风景4K#食谱#美食超清#搞笑#球星#动物世界超清#相声小品#戏曲#儿童#小姐姐4K#热门#旅行探险",
